@@ -60,7 +60,6 @@ def load_kube_configs():
         # add to settings
         settings['k8s'][idx]['config'] = config
 
-    print('kubeconfigs loaded')
 
 def load_k8s_clients():
     throw_if_setting_not_set('k8s')
