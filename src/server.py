@@ -20,6 +20,11 @@ class HookResource:
             raise falcon.HTTPBadRequest(title='Empty request body',
                                         description='A valid JSON document is required.')
 
+        token = req.get_header('Authorization')
+        if token is None:
+            raise falcon.HTTPUnauthorized(title='Unauthorized',
+                                            description='Missing token.')
+
         # parse the body
         body = req.bounded_stream.read()
         if not body:
@@ -81,6 +86,23 @@ class HookResource:
             raise falcon.HTTPBadRequest(title='Invalid namespace',
                                         description='Namespace is not found.')
         
+        
+        # get secret
+        secret_name = "kthcloud-ci-token"
+        secret = None
+        for s in apiV1.list_namespaced_secret(namespace.metadata.name).items:
+            if s.metadata.name == secret_name:
+                secret = s
+                break
+
+        if secret is None:
+            raise falcon.HTTPBadRequest(title='Invalid secret',
+                                        description='Secret is not found.')
+        
+        if secret.data['token'] != token:
+            raise falcon.HTTPUnauthorized(title='Unauthorized',
+                                            description='Invalid token.')
+
         # get deployment
         deployment = None
         for d in appsV1.list_namespaced_deployment(namespace.metadata.name).items:
