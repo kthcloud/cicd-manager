@@ -69,6 +69,7 @@ class HookResource:
                 break
         
         if client is None:
+            print(f'Cluster {cluster_name} is not found, or no client exists for it')
             raise falcon.HTTPBadRequest(title='Invalid cluster',
                                         description='Cluster is not found.')        
         
@@ -83,6 +84,7 @@ class HookResource:
                 break
 
         if namespace is None:
+            print(f'Namespace {project_name} does not exist')
             raise falcon.HTTPBadRequest(title='Invalid namespace',
                                         description='Namespace is not found.')
         
@@ -111,10 +113,12 @@ class HookResource:
                 break
         
         if deployment is None:
+            print(f'Deployment {repo_name} does not exist in namespace {namespace.metadata.name}')
             raise falcon.HTTPBadRequest('Invalid deployment',
                                         'Deployment is not found.')
         
         # restart deployment
+        print(f'Restarting deployment {deployment.metadata.name} in namespace {namespace.metadata.name}')
         _restart_deployment(appsV1, deployment.metadata.name, namespace.metadata.name)
     
         resp.status = falcon.HTTP_200
