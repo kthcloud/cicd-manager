@@ -46,6 +46,12 @@ class HookResource:
         throw_if_not_set('event_data.repository', req_body)
         throw_if_not_set('event_data.repository.namespace', req_body)
         throw_if_not_set('event_data.repository.name', req_body)
+        throw_if_not_set('event_data.resources', req_body)
+        if len(req_body['event_data']['resources']) == 0:
+            raise falcon.HTTPBadRequest(title='Invalid request body',
+                                        description='event_data.resources is empty.')
+
+        throw_if_not_set('resource_url', req_body['event_data']['resources'][0])
 
         if req_body["type"] != "PUSH_ARTIFACT":
             raise falcon.HTTPBadRequest(title='Invalid event type',
@@ -59,7 +65,6 @@ class HookResource:
         # project_name -> k8s namespace
         # repo_name -> k8s deployment
         project_name = req_body["event_data"]["repository"]["namespace"]
-        repo_name = req_body["event_data"]["repository"]["name"]
 
         # get k8s client
         client = None
@@ -105,21 +110,32 @@ class HookResource:
             raise falcon.HTTPUnauthorized(title='Unauthorized',
                                             description='Invalid token.')
 
-        # get deployment
-        deployment = None
+        # restart any deployment using the image
+        image = req_body['event_data']['resources'][0]['resource_url']
+        deployments = []
         for d in appsV1.list_namespaced_deployment(namespace.metadata.name).items:
-            if d.metadata.name == repo_name:
-                deployment = d
-                break
+            for c in d.spec.template.spec.containers:
+                # match image name
+                if c.image == image:
+                    deployments.append(d)
+                    break
+                
+
+                # we also match if the image is tagged with latest, and the deployment does not use a tag (implicit latest)
+                harbor_image_is_latests = image.endswith(":latest") or len(image.split(":")) == 1
+                deployment_image_is_latest = c.image.endswith(":latest") or len(c.image.split(":")) == 1
+
+                if harbor_image_is_latests and deployment_image_is_latest and image.split(":")[0] == c.image.split(":")[0]:
+                    deployments.append(d)
+                    break
         
-        if deployment is None:
-            print(f'Deployment {repo_name} does not exist in namespace {namespace.metadata.name}')
-            raise falcon.HTTPBadRequest('Invalid deployment',
-                                        'Deployment is not found.')
-        
-        # restart deployment
-        print(f'Restarting deployment {deployment.metadata.name} in namespace {namespace.metadata.name}')
-        _restart_deployment(appsV1, deployment.metadata.name, namespace.metadata.name)
+        if len(deployments) == 0:
+            print(f'No deployment is using image {image}')
+        else:        
+            # restart deployment
+            for deployment in deployments:
+                print(f'Restarting deployment {deployment.metadata.name} in namespace {namespace.metadata.name}')
+                _restart_deployment(appsV1, deployment.metadata.name, namespace.metadata.name)
     
         resp.status = falcon.HTTP_200
 

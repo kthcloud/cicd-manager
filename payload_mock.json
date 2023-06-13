@@ -1,0 +1,21 @@
+{
+    "type":"PUSH_ARTIFACT",
+    "occur_at":1686648769,
+    "operator":"robot$landing+ci",
+    "event_data":{
+    "resources":[
+        {
+            "digest":"sha256:c7189b403e0204802cda5f0c604f03f39c0838f0bd2daae62e135a909cf5d6be",
+            "tag":"latest",
+            "resource_url":"registry.cloud.cbh.kth.se/landing/go-deploy-api:latest"
+        }
+    ],
+        "repository": {
+            "date_created":1686585306,
+            "name":"go-deploy-api",
+            "namespace":"landing",
+            "repo_full_name":"landing/go-deploy-api",
+            "repo_type":"private"
+        }
+    }
+}
