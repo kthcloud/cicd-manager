@@ -69,6 +69,9 @@ class HookResource:
         # get k8s client
         client = None
         for cluster in get_settings()['k8s']:
+            if 'client' not in cluster:
+                continue
+
             if cluster['name'] == cluster_name:
                 client = cluster['client']
                 break
@@ -76,7 +79,7 @@ class HookResource:
         if client is None:
             print(f'Cluster {cluster_name} is not found, or no client exists for it')
             raise falcon.HTTPBadRequest(title='Invalid cluster',
-                                        description='Cluster is not found.')        
+                                        description=f'Cluster {cluster_name} is not found, or no client exists for it.')        
         
         apiV1 = kubernetes.client.CoreV1Api(client)
         appsV1 = kubernetes.client.AppsV1Api(client)
