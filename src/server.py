@@ -113,17 +113,17 @@ class HookResource:
                 break
 
         if secret is None:
-            print(f'Secret {secret_name} does not exist')
+            print(f'Secret {secret_name} does not exist in namespace {namespace.metadata.name}')
             raise falcon.HTTPBadRequest(title='Invalid secret',
                                         description='Secret is not found.')
         
         if 'token' not in secret.data:
-            print(f'Secret {secret_name} does not contain token')
+            print(f'Secret {secret_name} does not contain a token field in namespace {namespace.metadata.name}')
             raise falcon.HTTPBadRequest(title='Invalid secret',
                                         description='Secret is not found.')
         
         if secret.data['token'] != token:
-            print(f'Unauthorized: Invalid token')
+            print(f'Unauthorized: Invalid token in namespace {namespace.metadata.name}')
             raise falcon.HTTPUnauthorized(title='Unauthorized',
                                             description='Invalid token.')
 
@@ -147,7 +147,7 @@ class HookResource:
                     break
         
         if len(deployments) == 0:
-            print(f'No deployment is using image {image}')
+            print(f'No deployment is using image {image} in namespace {namespace.metadata.name}')
         else:        
             # restart deployment
             for deployment in deployments:
