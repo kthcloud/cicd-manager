@@ -13,21 +13,25 @@ class HookResource:
         """Handles POST requests"""
 
         if req.content_type != 'application/json':
+            print(f'Invalid content type: {req.content_type}')
             raise falcon.HTTPUnsupportedMediaType(title='Unsupported content type',
                                                     description='Use application/json.')
         
         if req.content_length in (None, 0):
+            print(f'Empty request body. A valid JSON document is required.')
             raise falcon.HTTPBadRequest(title='Empty request body',
                                         description='A valid JSON document is required.')
 
         token = req.get_header('Authorization')
         if token is None:
+            print(f'Unauthorized: Missing token')            
             raise falcon.HTTPUnauthorized(title='Unauthorized',
                                             description='Missing token.')
 
         # parse the body
         body = req.bounded_stream.read()
         if not body:
+            print(f'Empty request body. A valid JSON document is required.')
             raise falcon.HTTPBadRequest(title='Empty request body',
                                         description='A valid JSON document is required.')
         
@@ -35,6 +39,7 @@ class HookResource:
         try:
             req_body = json.loads(body.decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
+            print(f'Could not decode the request body. The JSON was incorrect or not encoded as UTF-8.')
             raise falcon.HTTPError(code=falcon.HTTP_753,
                                     title='Malformed JSON',
                                     description='Could not decode the request body. The '
@@ -54,11 +59,13 @@ class HookResource:
         throw_if_not_set('resource_url', req_body['event_data']['resources'][0])
 
         if req_body["type"] != "PUSH_ARTIFACT":
+            print(f'Invalid event type: {req_body["type"]}')
             raise falcon.HTTPBadRequest(title='Invalid event type',
                                         description='Event type is not supported.')
         
         cluster_name = req.params.get('cluster')
         if cluster_name is None:
+            print(f'Invalid cluster. Cluster is not specified')
             raise falcon.HTTPBadRequest(title='Invalid cluster',
                                         description='Cluster is not specified.')
 
@@ -106,10 +113,17 @@ class HookResource:
                 break
 
         if secret is None:
+            print(f'Secret {secret_name} does not exist')
+            raise falcon.HTTPBadRequest(title='Invalid secret',
+                                        description='Secret is not found.')
+        
+        if 'token' not in secret.data:
+            print(f'Secret {secret_name} does not contain token')
             raise falcon.HTTPBadRequest(title='Invalid secret',
                                         description='Secret is not found.')
         
         if secret.data['token'] != token:
+            print(f'Unauthorized: Invalid token')
             raise falcon.HTTPUnauthorized(title='Unauthorized',
                                             description='Invalid token.')
 
@@ -167,10 +181,12 @@ def throw_if_not_set(key, json_body):
     
     for i in range(len(split)):
         if split[i] not in parent:
+            print(f"Invalid request body. Key {key} is required.")
             raise falcon.HTTPBadRequest(title='Invalid request body',
                                         description=f'Key {key} is required.')
 
         if parent[split[i]] == None:
+            print(f"Invalid request body. Key {key} is required.")
             raise falcon.HTTPBadRequest('Invalid request body',
                                         f'Key {key} is required.')
         
