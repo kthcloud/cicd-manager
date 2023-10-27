@@ -3,7 +3,7 @@
 CI/CD Manager for kthcloud automatically restarts Kubernetes deployments when a new image is pushed to the registry.
 
 ## 🌐 API
-### /v1/hook
+### POST /v1/hook
 Webhook endpoint for pushed images
 
 #### Params
