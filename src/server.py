@@ -69,9 +69,14 @@ class HookResource:
             raise falcon.HTTPBadRequest(title='Invalid cluster',
                                         description='Cluster is not specified.')
 
+        custom_namespace = req.params.get('namespace')
+        if custom_namespace is not None:
+            project_name = custom_namespace
+        else:        
+            project_name = req_body["event_data"]["repository"]["namespace"]
+
         # project_name -> k8s namespace
         # repo_name -> k8s deployment
-        project_name = req_body["event_data"]["repository"]["namespace"]
 
         # get k8s client
         client = None
