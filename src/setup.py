@@ -43,6 +43,9 @@ def load_kube_configs():
             config = f.read()
             settings['k8s']['clusters'].append({'name': file.split('.')[0], 'config': config})
 
+    if len(settings['k8s']['clusters']) == 0:
+        print('No kubeconfig found in the configDir! If this is not intended, please check the configDir path in the config file')
+
 
 def load_k8s_clients():
     throw_if_setting_not_set('k8s')
