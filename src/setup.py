@@ -32,44 +32,22 @@ def load_kube_configs():
 
     settings = get_settings()
 
-    throw_if_setting_not_set('cloudstack')
-    throw_if_setting_not_set('cloudstack.apiKey')
-    throw_if_setting_not_set('cloudstack.secret')
-    throw_if_setting_not_set('cloudstack.url')
-    throw_if_setting_not_set('k8s')    
+    throw_if_setting_not_set('k8s')
+    throw_if_setting_not_set('k8s.configDir')
+
+    settings['k8s']['clusters'] = []
     
-    # fetch kubeconfigs from cloudstack for clusters system, prod, dev
-    cs = CloudStack(settings['cloudstack']['url'], settings['cloudstack']['apiKey'], settings['cloudstack']['secret'])
-    
-    # fetch from cloudstack
-    for idx, cluster in enumerate(settings['k8s']):
-        try:
-        
-            # list all = true
-            cluster_res = cs.listKubernetesClusters(name=cluster['name'], listall=True)
-            
-            if len(cluster_res['kubernetescluster']) == 0:
-                print(f'Cluster {cluster["name"]} not found')
-                continue
-
-            # fetch kubeconfig
-            id = cluster_res['kubernetescluster'][0]['id']
-            config = cs.getKubernetesClusterConfig(id=id)
-
-            # replace local ip with public ip
-            regex = r'https://172.31.1.[0-9]+:6443'
-            config = re.sub(regex, cluster['url'], config['clusterconfig']['configdata'], 0, re.MULTILINE)
-
-            # add to settings
-            settings['k8s'][idx]['config'] = config
-        except:
-            print(f'Failed to fetch kubeconfig for cluster {cluster["name"]}')
+    # Load all configs from the configDir. The name of the file is the name of the cluster
+    for file in os.listdir(settings['k8s']['configDir']):
+        with open(f'{settings["k8s"]["configDir"]}/{file}', 'r') as f:
+            config = f.read()
+            settings['k8s']['clusters'].append({'name': file.split('.')[0], 'config': config})
 
 
 def load_k8s_clients():
     throw_if_setting_not_set('k8s')
 
-    for idx, cluster in enumerate(get_settings()['k8s']):
+    for idx, cluster in enumerate(get_settings()['k8s']['clusters']):
         try:
             yaml_config = yaml.load(cluster['config'], Loader=yaml.FullLoader)
 
@@ -79,9 +57,9 @@ def load_k8s_clients():
                 print(f'Cluster {cluster["name"]} not connected')
                 continue
 
-            settings['k8s'][idx]['client'] = client
-        except:
-            print(f'Failed to load k8s client for cluster {cluster["name"]}')
+            settings['k8s']['clusters'][idx]['client'] = client
+        except Exception as e:
+            print(f'Failed to load k8s client for cluster {cluster["name"]} with error: {e}')
 
 def throw_if_setting_not_set(key):
     split = key.split('.')
@@ -99,7 +77,7 @@ def __check_k8s_cluster_connection(client):
     if namespaces == None:
         return False
     
-    # check if kube-system is in the result
+    # Check if kube-system is in the result
     for ns in namespaces.items:
         if ns.metadata.name == 'kube-system':
             return True

@@ -6,7 +6,7 @@ from wsgiref.simple_server import make_server
 from kubernetes.client.rest import ApiException
 import kubernetes.client, kubernetes.config
 
-from src.setup import get_settings, throw_if_setting_not_set
+from src.setup import get_settings
 
 class HookResource:
     def on_post(self, req, resp):
@@ -40,7 +40,7 @@ class HookResource:
             req_body = json.loads(body.decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
             print(f'Could not decode the request body. The JSON was incorrect or not encoded as UTF-8.')
-            raise falcon.HTTPError(code=falcon.HTTP_753,
+            raise falcon.HTTPBadRequest(code=falcon.HTTP_400,
                                     title='Malformed JSON',
                                     description='Could not decode the request body. The '
                                                 'JSON was incorrect or not encoded as '
@@ -79,15 +79,7 @@ class HookResource:
         # repo_name -> k8s deployment
 
         # get k8s client
-        client = None
-        for cluster in get_settings()['k8s']:
-            if 'client' not in cluster:
-                continue
-
-            if cluster['name'] == cluster_name:
-                client = cluster['client']
-                break
-        
+        client = get_client(cluster_name)        
         if client is None:
             print(f'Cluster {cluster_name} is not found, or no client exists for it')
             raise falcon.HTTPBadRequest(title='Invalid cluster',
@@ -179,6 +171,13 @@ def _restart_deployment(v1_apps, deployment, namespace):
         v1_apps.patch_namespaced_deployment(deployment, namespace, body, pretty='true')
     except ApiException as e:
         print("Exception when calling AppsV1Api->read_namespaced_deployment_status: %s\n" % e)
+
+def get_client(cluster_name):
+    for cluster in get_settings()['k8s']['clusters']:
+        if cluster['name'] == cluster_name:
+            return cluster['client']
+    
+    return None
 
 def throw_if_not_set(key, json_body):
     split = key.split('.')
