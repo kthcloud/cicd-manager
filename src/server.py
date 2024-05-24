@@ -126,31 +126,57 @@ class HookResource:
 
         # restart any deployment using the image
         image = req_body['event_data']['resources'][0]['resource_url']
+
+        # We also match if the image is tagged with latest, and the deployment does not use a tag (implicit latest)
+        harbor_image_is_latests = image.endswith(":latest") or len(image.split(":")) == 1
+        
         deployments = []
+        statefulsets = []
+
         for d in appsV1.list_namespaced_deployment(namespace.metadata.name).items:
             for c in d.spec.template.spec.containers:
                 # match image name
                 if c.image == image:
                     deployments.append(d)
-                    break
-                
+                    break                
 
-                # we also match if the image is tagged with latest, and the deployment does not use a tag (implicit latest)
-                harbor_image_is_latests = image.endswith(":latest") or len(image.split(":")) == 1
                 deployment_image_is_latest = c.image.endswith(":latest") or len(c.image.split(":")) == 1
 
                 if harbor_image_is_latests and deployment_image_is_latest and image.split(":")[0] == c.image.split(":")[0]:
                     deployments.append(d)
                     break
+
+        for s in appsV1.list_namespaced_stateful_set(namespace.metadata.name).items:
+            for c in s.spec.template.spec.containers:
+                # match image name
+                if c.image == image:
+                    statefulsets.append(s)
+                    break                
+
+                statefulset_image_is_latest = c.image.endswith(":latest") or len(c.image.split(":")) == 1
+
+                if harbor_image_is_latests and statefulset_image_is_latest and image.split(":")[0] == c.image.split(":")[0]:
+                    statefulsets.append(s)
+                    break
+        
         
         if len(deployments) == 0:
             print(f'No deployment is using image {image} in namespace {namespace.metadata.name}')
-        else:        
+        else:
             # restart deployment
             for deployment in deployments:
                 print(f'Restarting deployment {deployment.metadata.name} in namespace {namespace.metadata.name}')
                 _restart_deployment(appsV1, deployment.metadata.name, namespace.metadata.name)
     
+        if len(statefulsets) == 0:
+            print(f'No statefulset is using image {image} in namespace {namespace.metadata.name}')
+        else:
+            # restart statefulset
+            for statefulset in statefulsets:
+                print(f'Restarting statefulset {statefulset.metadata.name} in namespace {namespace.metadata.name}')
+                _restart_statefulset(appsV1, statefulset.metadata.name, namespace.metadata.name)
+
+
         resp.status = falcon.HTTP_200
 
 def _restart_deployment(v1_apps, deployment, namespace):
@@ -171,6 +197,26 @@ def _restart_deployment(v1_apps, deployment, namespace):
         v1_apps.patch_namespaced_deployment(deployment, namespace, body, pretty='true')
     except ApiException as e:
         print("Exception when calling AppsV1Api->read_namespaced_deployment_status: %s\n" % e)
+
+def _restart_statefulset(v1_apps, statefulset, namespace):
+    now = datetime.datetime.utcnow()
+    now = str(now.isoformat("T") + "Z")
+    body = {
+        'spec': {
+            'template':{
+                'metadata': {
+                    'annotations': {
+                        'kubectl.kubernetes.io/restartedAt': now
+                    }
+                }
+            }
+        }
+    }
+    try:
+        v1_apps.patch_namespaced_stateful_set(statefulset, namespace, body, pretty='true')
+    except ApiException as e:
+        print("Exception when calling AppsV1Api->read_namespaced_stateful_set_status: %s\n" % e)
+
 
 def get_client(cluster_name):
     for cluster in get_settings()['k8s']['clusters']:
