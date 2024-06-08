@@ -63,7 +63,7 @@ def load_k8s_clients():
 
             settings['k8s']['clusters'][idx]['client'] = client
         except Exception as e:
-            print(f'Failed to load k8s client for cluster {cluster["name"]} with error: {e}')
+            raise Exception(f'Failed to load k8s client for cluster {cluster["name"]} with error: {e}')
 
 def throw_if_setting_not_set(key):
     split = key.split('.')
